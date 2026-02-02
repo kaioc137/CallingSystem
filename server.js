@@ -9,41 +9,49 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// A fila agora guarda objetos: { nome: "João", setor: "lotacao", assunto: "Lotação de Professores" }
 let filaDeEspera = []; 
-let ultimoChamado = { name: "Bem-vindo", sector: "Aguarde", room: "" };
+let ultimoChamado = { name: "BEM-VINDO", sector: "AGUARDE", room: "" };
 
 io.on('connection', (socket) => {
     // Envia dados iniciais
     socket.emit('update-call', ultimoChamado);
     socket.emit('update-queue', filaDeEspera);
 
-    // 1. RECEPÇÃO ADICIONA (TRIAGEM)
+    // 1. RECEPÇÃO ADICIONA (Com Uppercase forçado)
     socket.on('add-to-queue', (dadosPessoa) => {
-        // dadosPessoa = { nome: "Maria", setorCodigo: "lotacao", setorNome: "Lotação" }
+        // Força o nome a ser maiúsculo aqui no servidor para garantir
+        dadosPessoa.nome = dadosPessoa.nome.toUpperCase();
+        
         filaDeEspera.push(dadosPessoa);
         io.emit('update-queue', filaDeEspera);
     });
 
-    // 2. SALA CHAMA (POR SETOR ESPECÍFICO)
+    // 2. SALA CHAMA
     socket.on('request-next', (dadosSala) => {
-        // Descobre o índice da primeira pessoa que está esperando para ESSE setor
         const index = filaDeEspera.findIndex(pessoa => pessoa.setorCodigo === dadosSala.setorCodigo);
 
         if (index > -1) {
-            // Remove essa pessoa específica da fila (não necessariamente a primeira da lista geral)
             const pessoaChamada = filaDeEspera.splice(index, 1)[0];
             
             ultimoChamado = {
                 name: pessoaChamada.nome,
-                room: dadosSala.room,      // Ex: Sala A4
-                sector: dadosSala.setorNome // Ex: Lotação
+                room: dadosSala.room,
+                sector: dadosSala.setorNome,
+                isRepeat: false // Marca como chamado novo
             };
 
             io.emit('update-call', ultimoChamado);
             io.emit('update-queue', filaDeEspera);
         } else {
             socket.emit('error-empty', 'Não há ninguém aguardando para o seu setor.');
+        }
+    });
+
+    // 3. REPETIR CHAMADA (NOVO)
+    socket.on('repeat-call', () => {
+        if (ultimoChamado.name !== "BEM-VINDO") {
+            // Reenvia o mesmo dado, mas com flag de repetição
+            io.emit('update-call', { ...ultimoChamado, isRepeat: true });
         }
     });
 });

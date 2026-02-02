@@ -5,42 +5,37 @@
     <title>Painel de Chamadas</title>
     <style>
         body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #2c3e50; color: white; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        
         .container { text-align: center; width: 90%; }
-        
-        /* Cartão principal */
         .card { background-color: #ecf0f1; color: #2c3e50; padding: 50px 20px; border-radius: 20px; box-shadow: 0 15px 30px rgba(0,0,0,0.5); border-left: 15px solid #27ae60; }
-
+        
         .label { font-size: 1.5rem; text-transform: uppercase; color: #7f8c8d; letter-spacing: 2px; margin-bottom: 10px; }
         
-        /* Nome da Pessoa (Destaque principal) */
+        /* Garante uppercase no nome */
         .name-display { font-size: 5rem; font-weight: 800; color: #2c3e50; margin: 0 0 30px 0; line-height: 1.1; text-transform: uppercase; }
         
-        /* Informações do Local */
         .info-group { display: flex; justify-content: center; gap: 40px; margin-top: 20px; border-top: 2px solid #bdc3c7; padding-top: 20px; }
         .info-box { flex: 1; }
-        .info-value { font-size: 2.5rem; font-weight: bold; color: #c0392b; }
-        .sector-value { font-size: 2rem; color: #2980b9; font-weight: bold; }
-
-        /* Animação */
+        
+        /* Garante uppercase nos detalhes */
+        .info-value { font-size: 2.5rem; font-weight: bold; color: #c0392b; text-transform: uppercase; }
+        .sector-value { font-size: 2rem; color: #2980b9; font-weight: bold; text-transform: uppercase; }
+        
         .blink { animation: flash 1s infinite alternate; }
         @keyframes flash { from { background-color: #ecf0f1; } to { background-color: #f1c40f; } }
     </style>
 </head>
 <body>
-
     <div class="container">
         <div class="card" id="card">
-            <div class="label">Chamando Agora</div>
+            <div class="label">CHAMANDO AGORA</div>
             <div class="name-display" id="name">AGUARDE</div>
-            
             <div class="info-group">
                 <div class="info-box">
-                    <div class="label">Setor</div>
+                    <div class="label">SETOR</div>
                     <div class="sector-value" id="sector">---</div>
                 </div>
                 <div class="info-box">
-                    <div class="label">Local</div>
+                    <div class="label">LOCAL</div>
                     <div class="info-value" id="room">---</div>
                 </div>
             </div>
@@ -58,31 +53,38 @@
         const elCard = document.getElementById('card');
 
         function speak(text) {
-            window.speechSynthesis.cancel(); // Para a fala anterior se houver
+            window.speechSynthesis.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'pt-BR';
-            utterance.rate = 1.1; // Um pouco mais rápido
+            utterance.rate = 1.1; // Velocidade da fala
             window.speechSynthesis.speak(utterance);
         }
 
         socket.on('update-call', (data) => {
-            // Verifica se mudou para não falar repetido ao recarregar
             const currentText = elName.innerText;
             
             elName.innerText = data.name;
             elSector.innerText = data.sector;
             elRoom.innerText = data.room;
 
-            // Só toca som e animação se tiver nome e for diferente do anterior
-            if(data.name !== "Bem-vindo" && data.name !== currentText) {
-                // Animação visual
+            // Se o nome mudar OU for um pedido de repetição (isRepeat)
+            if(data.name !== "BEM-VINDO" && (data.name !== currentText || data.isRepeat)) {
+                
+                // Piscar tela
+                elCard.classList.remove('blink');
+                void elCard.offsetWidth; 
                 elCard.classList.add('blink');
                 setTimeout(() => elCard.classList.remove('blink'), 4000);
 
-                // Fala: "Fulano, compareça ao Setor Tal na Sala X"
-                // Ajustei o texto para a fala ficar natural
-                const textToSpeak = `${data.name}, compareça ao ${data.sector}, na ${data.room}`;
-                speak(textToSpeak);
+                // Monta a frase
+                let textToSpeak = `${data.name}, compareça ao ${data.sector}, na ${data.room}`;
+                
+                // Se for repetição, adiciona aviso
+                if (data.isRepeat) {
+                    textToSpeak = `Atenção, chamando novamente. ${textToSpeak}`;
+                }
+
+                speak(textToSpeak.toLowerCase()); // Convertendo p/ minusculo na fala ajuda algumas vozes digitais a soarem mais naturais, mas o texto na tela fica maiusculo.
             }
         });
     </script>

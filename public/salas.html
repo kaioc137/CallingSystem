@@ -2,15 +2,24 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Atendimento por Setor</title>
+    <title>Minha Sala - Atendimento</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #e9ecef; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .panel { background: white; padding: 40px; border-radius: 15px; width: 100%; max-width: 450px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .panel { background: white; padding: 40px; border-radius: 15px; width: 100%; max-width: 500px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
         
-        select { width: 100%; padding: 12px; margin-bottom: 20px; font-size: 1rem; border: 1px solid #ccc; border-radius: 5px; background: #fff; }
+        select { width: 100%; padding: 12px; margin-bottom: 20px; font-size: 1rem; border: 1px solid #ccc; border-radius: 5px; background: #fff; text-transform: uppercase; }
         
-        button { width: 100%; padding: 25px; font-size: 1.4rem; font-weight: bold; color: white; background-color: #2980b9; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; }
-        button:hover { background-color: #3498db; transform: scale(1.02); }
+        /* Grupo de botões */
+        .button-group { display: flex; gap: 10px; width: 100%; }
+
+        button { padding: 25px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; transition: 0.2s; font-size: 1.2rem; }
+        button:hover { transform: scale(1.02); }
+
+        .btn-repeat { background-color: #f39c12; flex: 1; } /* Amarelo (30% do espaço) */
+        .btn-repeat:hover { background-color: #e67e22; }
+
+        .btn-call { background-color: #2980b9; flex: 2; } /* Azul (70% do espaço) */
+        .btn-call:hover { background-color: #3498db; }
         
         .status-box { margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #eee; }
         .count-big { font-size: 2rem; font-weight: bold; color: #e67e22; display: block; }
@@ -23,14 +32,17 @@
         <label style="display:block; text-align:left; margin-bottom:5px; font-weight:bold; color:#555;">CONFIGURAR ESTA SALA:</label>
         
         <select id="configSelect">
-            <option value="estagio|Recepção|Estágio">Recepção (Atender Estágio)</option>
-            <option value="terceirizados|Sala A1|Terceirizados">Sala A1 (Atender Terceirizados)</option>
-            <option value="frequencia|Sala A3|Frequência">Sala A3 (Atender Frequência)</option>
-            <option value="lotacao|Sala A4|Lotação">Sala A4 (Atender Lotação)</option>
-            <option value="ferias|Sala A5|Férias e Licenças">Sala A5 (Atender RH/Férias)</option>
+            <option value="estagio|RECEPÇÃO|SETOR DE ESTÁGIO">RECEPÇÃO (ATENDER ESTÁGIO)</option>
+            <option value="terceirizados|SALA A1|SETOR DE TERCEIRIZADOS">SALA A1 (ATENDER TERCEIRIZADOS)</option>
+            <option value="frequencia|SALA A3|SETOR DE FREQUÊNCIA">SALA A3 (ATENDER FREQUÊNCIA)</option>
+            <option value="lotacao|SALA A4|LOTAÇÃO DE PROFESSORES">SALA A4 (ATENDER LOTAÇÃO)</option>
+            <option value="ferias|SALA A5|FÉRIAS E LICENÇAS">SALA A5 (ATENDER RH/FÉRIAS)</option>
         </select>
 
-        <button onclick="callNext()">CHAMAR PRÓXIMO 📢</button>
+        <div class="button-group">
+            <button class="btn-repeat" onclick="repeatCall()">🔁 REPETIR</button>
+            <button class="btn-call" onclick="callNext()">CHAMAR PRÓXIMO 📢</button>
+        </div>
 
         <div class="status-box">
             <span class="label-small">Pessoas aguardando para este setor:</span>
@@ -45,11 +57,10 @@
         const myQueueCount = document.getElementById('myQueueCount');
         let myCurrentSectorCode = "";
 
-        // Carregar configuração salva
+        // Carregar config salva
         const savedConfig = localStorage.getItem('salaConfig');
         if (savedConfig) configSelect.value = savedConfig;
 
-        // Atualiza a contagem assim que carrega
         updateMyCountLogic(configSelect.value);
 
         configSelect.addEventListener('change', () => {
@@ -58,25 +69,24 @@
         });
 
         function updateMyCountLogic(value) {
-            const [codigo, sala, nomeSetor] = value.split('|');
+            const [codigo] = value.split('|');
             myCurrentSectorCode = codigo;
-            // Pede atualização ao servidor (opcional, mas o socket.on abaixo já resolve)
         }
 
         function callNext() {
             const [setorCodigo, room, setorNome] = configSelect.value.split('|');
-            // Envia pedido especificando QUAL setor eu atendo
             socket.emit('request-next', { setorCodigo, room, setorNome });
         }
 
-        // Lógica para filtrar quantos estão na fila APENAS para o meu setor
+        function repeatCall() {
+            socket.emit('repeat-call');
+        }
+
         socket.on('update-queue', (listaTotal) => {
             if(!myCurrentSectorCode) {
                  const [codigo] = configSelect.value.split('|');
                  myCurrentSectorCode = codigo;
             }
-
-            // Conta quantos na lista tem o mesmo código do meu setor
             const count = listaTotal.filter(p => p.setorCodigo === myCurrentSectorCode).length;
             myQueueCount.innerText = count;
         });
