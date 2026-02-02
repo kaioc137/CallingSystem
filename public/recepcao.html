@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Triagem - Recepção</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f4f4; padding: 20px; max-width: 800px; margin: auto; }
+        .input-group { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 15px; }
+        
+        input, select { padding: 12px; font-size: 1.1rem; border: 1px solid #ccc; border-radius: 4px; }
+        
+        button { padding: 12px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 1.1rem; }
+        button:hover { background-color: #219150; }
+        
+        ul { list-style: none; padding: 0; margin-top: 20px; }
+        li { background: white; border-bottom: 1px solid #eee; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .tag { font-size: 0.8rem; padding: 4px 8px; border-radius: 4px; background: #eee; color: #555; font-weight: bold; }
+        
+        /* Cores para identificar visualmente na lista */
+        .tag.lotacao { background: #e8f8f5; color: #1abc9c; }
+        .tag.ferias { background: #fef9e7; color: #f1c40f; }
+        .tag.terceirizados { background: #ebf5fb; color: #3498db; }
+    </style>
+</head>
+<body>
+
+    <h2>Recepção - Triagem</h2>
+    
+    <div class="input-group">
+        <label>Nome do Cidadão:</label>
+        <input type="text" id="nameInput" placeholder="Ex: Maria da Silva" autofocus>
+
+        <label>Assunto / Encaminhar para:</label>
+        <select id="sectorInput">
+            <option value="estagio">Estágio (Recepção)</option>
+            <option value="terceirizados">Terceirizados (Sala A1)</option>
+            <option value="frequencia">Frequência (Sala A3)</option>
+            <option value="lotacao">Lotação de Professores (Sala A4)</option>
+            <option value="ferias">Férias / Licenças (Sala A5)</option>
+        </select>
+
+        <button onclick="addPerson()">CADASTRAR NA FILA (+)</button>
+    </div>
+
+    <h3>Fila Geral (<span id="count">0</span>)</h3>
+    <ul id="queueList"></ul>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const nameInput = document.getElementById('nameInput');
+        const sectorInput = document.getElementById('sectorInput');
+        const queueList = document.getElementById('queueList');
+
+        function addPerson() {
+            const nome = nameInput.value.trim();
+            const index = sectorInput.selectedIndex;
+            const setorCodigo = sectorInput.value;
+            const setorNome = sectorInput.options[index].text; // Pega o texto visível do select
+
+            if (nome) {
+                // Envia objeto completo
+                socket.emit('add-to-queue', { nome, setorCodigo, setorNome });
+                nameInput.value = '';
+                nameInput.focus();
+            }
+        }
+
+        nameInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") addPerson();
+        });
+
+        socket.on('update-queue', (lista) => {
+            document.getElementById('count').innerText = lista.length;
+            queueList.innerHTML = "";
+            
+            lista.forEach((pessoa, i) => {
+                const li = document.createElement('li');
+                // Cria visualização: "1. Maria [TAG: LOTAÇÃO]"
+                li.innerHTML = `
+                    <span><strong>${i + 1}.</strong> ${pessoa.nome}</span>
+                    <span class="tag ${pessoa.setorCodigo}">${pessoa.setorNome}</span>
+                `;
+                queueList.appendChild(li);
+            });
+        });
+    </script>
+</body>
+</html>

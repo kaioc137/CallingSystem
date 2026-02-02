@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Atendimento por Setor</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #e9ecef; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .panel { background: white; padding: 40px; border-radius: 15px; width: 100%; max-width: 450px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        
+        select { width: 100%; padding: 12px; margin-bottom: 20px; font-size: 1rem; border: 1px solid #ccc; border-radius: 5px; background: #fff; }
+        
+        button { width: 100%; padding: 25px; font-size: 1.4rem; font-weight: bold; color: white; background-color: #2980b9; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+        button:hover { background-color: #3498db; transform: scale(1.02); }
+        
+        .status-box { margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #eee; }
+        .count-big { font-size: 2rem; font-weight: bold; color: #e67e22; display: block; }
+        .label-small { color: #7f8c8d; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+    <div class="panel">
+        <label style="display:block; text-align:left; margin-bottom:5px; font-weight:bold; color:#555;">CONFIGURAR ESTA SALA:</label>
+        
+        <select id="configSelect">
+            <option value="estagio|Recepção|Estágio">Recepção (Atender Estágio)</option>
+            <option value="terceirizados|Sala A1|Terceirizados">Sala A1 (Atender Terceirizados)</option>
+            <option value="frequencia|Sala A3|Frequência">Sala A3 (Atender Frequência)</option>
+            <option value="lotacao|Sala A4|Lotação">Sala A4 (Atender Lotação)</option>
+            <option value="ferias|Sala A5|Férias e Licenças">Sala A5 (Atender RH/Férias)</option>
+        </select>
+
+        <button onclick="callNext()">CHAMAR PRÓXIMO 📢</button>
+
+        <div class="status-box">
+            <span class="label-small">Pessoas aguardando para este setor:</span>
+            <span class="count-big" id="myQueueCount">0</span>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const configSelect = document.getElementById('configSelect');
+        const myQueueCount = document.getElementById('myQueueCount');
+        let myCurrentSectorCode = "";
+
+        // Carregar configuração salva
+        const savedConfig = localStorage.getItem('salaConfig');
+        if (savedConfig) configSelect.value = savedConfig;
+
+        // Atualiza a contagem assim que carrega
+        updateMyCountLogic(configSelect.value);
+
+        configSelect.addEventListener('change', () => {
+            localStorage.setItem('salaConfig', configSelect.value);
+            updateMyCountLogic(configSelect.value);
+        });
+
+        function updateMyCountLogic(value) {
+            const [codigo, sala, nomeSetor] = value.split('|');
+            myCurrentSectorCode = codigo;
+            // Pede atualização ao servidor (opcional, mas o socket.on abaixo já resolve)
+        }
+
+        function callNext() {
+            const [setorCodigo, room, setorNome] = configSelect.value.split('|');
+            // Envia pedido especificando QUAL setor eu atendo
+            socket.emit('request-next', { setorCodigo, room, setorNome });
+        }
+
+        // Lógica para filtrar quantos estão na fila APENAS para o meu setor
+        socket.on('update-queue', (listaTotal) => {
+            if(!myCurrentSectorCode) {
+                 const [codigo] = configSelect.value.split('|');
+                 myCurrentSectorCode = codigo;
+            }
+
+            // Conta quantos na lista tem o mesmo código do meu setor
+            const count = listaTotal.filter(p => p.setorCodigo === myCurrentSectorCode).length;
+            myQueueCount.innerText = count;
+        });
+
+        socket.on('error-empty', (msg) => alert(msg));
+    </script>
+</body>
+</html>
