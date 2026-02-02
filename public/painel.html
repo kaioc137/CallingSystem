@@ -10,13 +10,13 @@
         
         .label { font-size: 1.5rem; text-transform: uppercase; color: #7f8c8d; letter-spacing: 2px; margin-bottom: 10px; }
         
-        /* Garante uppercase no nome */
+        /* O NOME já estava maiúsculo */
         .name-display { font-size: 5rem; font-weight: 800; color: #2c3e50; margin: 0 0 30px 0; line-height: 1.1; text-transform: uppercase; }
         
         .info-group { display: flex; justify-content: center; gap: 40px; margin-top: 20px; border-top: 2px solid #bdc3c7; padding-top: 20px; }
         .info-box { flex: 1; }
         
-        /* Garante uppercase nos detalhes */
+        /* AQUI A MUDANÇA: Adicionado text-transform: uppercase para garantir */
         .info-value { font-size: 2.5rem; font-weight: bold; color: #c0392b; text-transform: uppercase; }
         .sector-value { font-size: 2rem; color: #2980b9; font-weight: bold; text-transform: uppercase; }
         
@@ -56,7 +56,7 @@
             window.speechSynthesis.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'pt-BR';
-            utterance.rate = 1.1; // Velocidade da fala
+            utterance.rate = 1.1;
             window.speechSynthesis.speak(utterance);
         }
 
@@ -67,24 +67,21 @@
             elSector.innerText = data.sector;
             elRoom.innerText = data.room;
 
-            // Se o nome mudar OU for um pedido de repetição (isRepeat)
             if(data.name !== "BEM-VINDO" && (data.name !== currentText || data.isRepeat)) {
                 
-                // Piscar tela
                 elCard.classList.remove('blink');
                 void elCard.offsetWidth; 
                 elCard.classList.add('blink');
                 setTimeout(() => elCard.classList.remove('blink'), 4000);
 
-                // Monta a frase
                 let textToSpeak = `${data.name}, compareça ao ${data.sector}, na ${data.room}`;
                 
-                // Se for repetição, adiciona aviso
                 if (data.isRepeat) {
                     textToSpeak = `Atenção, chamando novamente. ${textToSpeak}`;
                 }
 
-                speak(textToSpeak.toLowerCase()); // Convertendo p/ minusculo na fala ajuda algumas vozes digitais a soarem mais naturais, mas o texto na tela fica maiusculo.
+                // Dica: Fala em minúsculo soa melhor, mas a tela mostra maiúsculo pelo CSS
+                speak(textToSpeak.toLowerCase()); 
             }
         });
     </script>

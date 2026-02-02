@@ -7,18 +7,18 @@
         body { font-family: 'Segoe UI', sans-serif; background-color: #e9ecef; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
         .panel { background: white; padding: 40px; border-radius: 15px; width: 100%; max-width: 500px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
         
+        /* Força o visual do menu também em maiúsculo */
         select { width: 100%; padding: 12px; margin-bottom: 20px; font-size: 1rem; border: 1px solid #ccc; border-radius: 5px; background: #fff; text-transform: uppercase; }
         
-        /* Grupo de botões */
         .button-group { display: flex; gap: 10px; width: 100%; }
 
         button { padding: 25px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; transition: 0.2s; font-size: 1.2rem; }
         button:hover { transform: scale(1.02); }
 
-        .btn-repeat { background-color: #f39c12; flex: 1; } /* Amarelo (30% do espaço) */
+        .btn-repeat { background-color: #f39c12; flex: 1; } 
         .btn-repeat:hover { background-color: #e67e22; }
 
-        .btn-call { background-color: #2980b9; flex: 2; } /* Azul (70% do espaço) */
+        .btn-call { background-color: #2980b9; flex: 2; } 
         .btn-call:hover { background-color: #3498db; }
         
         .status-box { margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #eee; }
@@ -57,7 +57,6 @@
         const myQueueCount = document.getElementById('myQueueCount');
         let myCurrentSectorCode = "";
 
-        // Carregar config salva
         const savedConfig = localStorage.getItem('salaConfig');
         if (savedConfig) configSelect.value = savedConfig;
 
