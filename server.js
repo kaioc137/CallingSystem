@@ -22,6 +22,26 @@ io.on('connection', (socket) => {
         // Comentei o log para não poluir seu terminal, já que roda a cada 5 min
         // console.log("Ping recebido, mantendo servidor acordado.");
     });
+    
+    // PLANO B: RESTAURAR FILA (Recuperação de desastre)
+    socket.on('restore-queue', (listaBackup) => {
+        // Validação básica
+        if (Array.isArray(listaBackup)) {
+            console.log("Restaurando fila via backup da recepção...");
+            filaDeEspera = listaBackup;
+            io.emit('update-queue', filaDeEspera);
+        }
+    });
+
+    // NOVA FUNÇÃO: REMOVER DA FILA (Botão de Lixeira)
+    socket.on('remove-from-queue', (index) => {
+        // Validação básica para evitar erros
+        if (typeof index === 'number' && index >= 0 && index < filaDeEspera.length) {
+            console.log(`Removendo cliente na posição: ${index}`);
+            filaDeEspera.splice(index, 1); // Remove 1 item nessa posição
+            io.emit('update-queue', filaDeEspera);
+        }
+    });
 
     // 1. RECEPÇÃO ADICIONA (BLINDADO)
     socket.on('add-to-queue', (dadosPessoa) => {
