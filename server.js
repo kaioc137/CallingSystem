@@ -17,6 +17,11 @@ io.on('connection', (socket) => {
     socket.emit('update-call', ultimoChamado);
     socket.emit('update-queue', filaDeEspera);
 
+    socket.on('ping-keep-alive', () => {
+    // Apenas recebe o sinal para manter a conexão ativa
+    console.log("Ping recebido, mantendo servidor acordado.");
+    });
+
     // 1. RECEPÇÃO ADICIONA (Com Uppercase forçado)
     socket.on('add-to-queue', (dadosPessoa) => {
         // Força o nome a ser maiúsculo aqui no servidor para garantir
@@ -56,7 +61,8 @@ io.on('connection', (socket) => {
     });
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000; 
+
 server.listen(PORT, () => {
-    console.log(`Servidor rodando em http://localhost:${PORT}`);
+    console.log(`Servidor rodando na porta ${PORT}`);
 });
