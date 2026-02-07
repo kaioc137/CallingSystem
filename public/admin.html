@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Painel Administrativo</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #ecf0f1; padding: 40px; }
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+        .card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
+        .number { font-size: 3rem; font-weight: bold; color: #2c3e50; margin: 10px 0; }
+        .label { color: #7f8c8d; text-transform: uppercase; font-size: 0.9rem; letter-spacing: 1px; }
+        .refresh-btn { margin-top: 30px; padding: 10px 20px; background: #2980b9; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>📊 Estatísticas de Atendimento</h1>
+    
+    <div class="dashboard">
+        <div class="card">
+            <div class="label">Pessoas na Fila</div>
+            <div class="number" id="fila">0</div>
+        </div>
+        <div class="card">
+            <div class="label">Atendidos Hoje</div>
+            <div class="number" id="atendidosHoje" style="color: #27ae60">0</div>
+        </div>
+        <div class="card">
+            <div class="label">Tempo Médio de Espera</div>
+            <div class="number" id="media">0<span style="font-size:1rem">min</span></div>
+        </div>
+        <div class="card">
+            <div class="label">Total Geral (Histórico)</div>
+            <div class="number" id="total">0</div>
+        </div>
+    </div>
+
+    <button class="refresh-btn" onclick="carregarDados()">🔄 Atualizar Dados</button>
+
+    <script>
+        async function carregarDados() {
+            const res = await fetch('/api/stats');
+            const dados = await res.json();
+
+            document.getElementById('fila').innerText = dados.totalFila;
+            document.getElementById('atendidosHoje').innerText = dados.atendidosHoje;
+            document.getElementById('media').innerText = dados.mediaMinutos;
+            document.getElementById('total').innerText = dados.totalAtendidos;
+        }
+        carregarDados(); // Carrega ao abrir
+        setInterval(carregarDados, 30000); // Atualiza a cada 30 seg
+    </script>
+</body>
+</html>

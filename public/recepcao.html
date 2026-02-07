@@ -92,8 +92,10 @@
             }
         }
 
-        function removePerson(index) {
-            if(confirm('Remover esta pessoa?')) socket.emit('remove-from-queue', index);
+        function removePerson(idMongo) {
+            if(confirm('Remover esta pessoa?')) {
+                socket.emit('remove-from-queue', idMongo);
+            }
         }
 
         nameInput.addEventListener("keypress", (e) => { if (e.key === "Enter") addPerson(); });
@@ -112,7 +114,7 @@
                         <strong>${i + 1}.</strong> ${pessoa.nome} ${iconPrioridade}
                         <span class="tag ${pessoa.setorCodigo}">${pessoa.setorNome}</span>
                     </div>
-                    <button class="btn-trash" onclick="removePerson(${i})">🗑️</button>
+                    <button class="btn-trash" onclick="removePerson('${pessoa._id}')">🗑️</button>
                 `;
                 queueList.appendChild(li);
             });
