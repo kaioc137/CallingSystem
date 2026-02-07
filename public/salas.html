@@ -165,28 +165,27 @@
                  myCurrentSectorCode = codigo;
             }
 
-            // 1. Filtra apenas as pessoas do setor selecionado neste computador
             const pessoasDoMeuSetor = listaTotal.filter(p => p.setorCodigo === myCurrentSectorCode);
-            
-            // 2. Atualiza o número grande
             myQueueCount.innerText = pessoasDoMeuSetor.length;
-
-            // 3. Atualiza a lista de nomes visualmente
             mySectorList.innerHTML = "";
             
             if (pessoasDoMeuSetor.length === 0) {
                 const li = document.createElement('li');
-                li.style.textAlign = "center";
-                li.style.color = "#ccc";
-                li.style.fontStyle = "italic";
+                li.style.justifyContent = "center";
                 li.innerText = "(Fila vazia)";
                 mySectorList.appendChild(li);
             } else {
                 pessoasDoMeuSetor.forEach((pessoa, index) => {
                     const li = document.createElement('li');
-                    li.innerHTML = `
-                        <span>${index + 1}. ${pessoa.nome}</span>
-                    `;
+                    
+                    // AQUI A MUDANÇA: Verifica se tem prioridade
+                    const badge = pessoa.prioridade ? '⭐' : '';
+                    
+                    li.innerHTML = `<span>${index + 1}. ${pessoa.nome} ${badge}</span>`;
+                    
+                    // Se for prioridade, deixa o texto negrito ou vermelho (opcional)
+                    if(pessoa.prioridade) li.style.color = "#d35400";
+
                     mySectorList.appendChild(li);
                 });
             }

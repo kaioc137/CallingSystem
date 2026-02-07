@@ -2,47 +2,60 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Painel de Chamadas</title>
+    <title>Painel</title>
     <style>
-        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #2c3e50; color: white; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        .container { text-align: center; width: 90%; }
-        .card { background-color: #ecf0f1; color: #2c3e50; padding: 50px 20px; border-radius: 20px; box-shadow: 0 15px 30px rgba(0,0,0,0.5); border-left: 15px solid #27ae60; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background-color: #2c3e50; color: white; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         
-        .label { font-size: 1.5rem; text-transform: uppercase; color: #7f8c8d; letter-spacing: 2px; margin-bottom: 10px; }
+        /* Área Principal */
+        .main-content { flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; }
+        .card { background-color: #ecf0f1; color: #2c3e50; padding: 40px 20px; border-radius: 20px; width: 85%; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border-left: 20px solid #27ae60; position: relative; }
         
-        /* O NOME já estava maiúsculo */
-        .name-display { font-size: 5rem; font-weight: 800; color: #2c3e50; margin: 0 0 30px 0; line-height: 1.1; text-transform: uppercase; }
+        .label { font-size: 1.2rem; color: #7f8c8d; letter-spacing: 2px; margin-bottom: 5px; text-transform: uppercase; }
+        .name-display { font-size: 5rem; font-weight: 800; color: #2c3e50; margin: 10px 0; line-height: 1; text-transform: uppercase; }
         
-        .info-group { display: flex; justify-content: center; gap: 40px; margin-top: 20px; border-top: 2px solid #bdc3c7; padding-top: 20px; }
-        .info-box { flex: 1; }
-        
-        /* AQUI A MUDANÇA: Adicionado text-transform: uppercase para garantir */
-        .info-value { font-size: 2.5rem; font-weight: bold; color: #c0392b; text-transform: uppercase; }
-        .sector-value { font-size: 2rem; color: #2980b9; font-weight: bold; text-transform: uppercase; }
-        
+        .info-group { display: flex; justify-content: center; gap: 30px; margin-top: 20px; border-top: 2px solid #bdc3c7; padding-top: 15px; }
+        .info-value { font-size: 2.2rem; font-weight: bold; color: #c0392b; text-transform: uppercase; }
+        .sector-value { font-size: 1.8rem; color: #2980b9; font-weight: bold; text-transform: uppercase; }
+
+        /* Icone Prioridade */
+        .priority-badge { display: none; background: #d35400; color: white; padding: 5px 15px; border-radius: 50px; font-size: 1.2rem; font-weight: bold; position: absolute; top: -15px; right: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+
         .blink { animation: flash 1s infinite alternate; }
         @keyframes flash { from { background-color: #ecf0f1; } to { background-color: #f1c40f; } }
+
+        /* Rodapé de Histórico */
+        .footer-history { height: 120px; background-color: #34495e; display: flex; align-items: center; padding: 0 20px; border-top: 4px solid #f39c12; }
+        .history-title { width: 150px; font-weight: bold; color: #f39c12; text-align: right; margin-right: 20px; font-size: 1.1rem; line-height: 1.2; }
+        .history-list { flex: 1; display: flex; gap: 20px; overflow: hidden; }
+        .history-item { background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px; border-left: 4px solid #bdc3c7; min-width: 200px; }
+        .hist-name { display: block; font-weight: bold; font-size: 1.1rem; text-transform: uppercase; }
+        .hist-loc { display: block; font-size: 0.9rem; color: #bdc3c7; }
+
+        .status-dot { position: fixed; bottom: 130px; right: 20px; width: 10px; height: 10px; border-radius: 50%; background: #ccc; }
+        .connected { background-color: #2ecc71; }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="main-content">
         <div class="card" id="card">
-            <div class="label">CHAMANDO AGORA</div>
+            <div class="priority-badge" id="priorityBadge">⭐ PRIORIDADE</div>
+            <div class="label">CHAMANDO</div>
             <div class="name-display" id="name">AGUARDE</div>
             <div class="info-group">
-                <div class="info-box">
-                    <div class="label">SETOR</div>
-                    <div class="sector-value" id="sector">---</div>
-                </div>
-                <div class="info-box">
-                    <div class="label">LOCAL</div>
-                    <div class="info-value" id="room">---</div>
-                </div>
+                <div><div class="label">SETOR</div><div class="sector-value" id="sector">---</div></div>
+                <div><div class="label">LOCAL</div><div class="info-value" id="room">---</div></div>
             </div>
         </div>
     </div>
     
-    <p style="position:fixed; bottom:10px; color: #95a5a6; font-size: 0.8rem;">Clique na tela para ativar o som inicial.</p>
+    <div class="footer-history">
+        <div class="history-title">ÚLTIMOS<br>CHAMADOS</div>
+        <div class="history-list" id="historyList">
+            </div>
+    </div>
+
+    <div id="statusDot" class="status-dot"></div>
+    <p style="position:fixed; bottom:130px; left: 20px; color: #7f8c8d; font-size: 0.7rem;">Toque para ativar som</p>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
@@ -51,38 +64,55 @@
         const elSector = document.getElementById('sector');
         const elRoom = document.getElementById('room');
         const elCard = document.getElementById('card');
+        const elBadge = document.getElementById('priorityBadge');
+        const historyList = document.getElementById('historyList');
+        const statusDot = document.getElementById('statusDot');
+
+        socket.on('connect', () => statusDot.classList.add('connected'));
+        socket.on('disconnect', () => statusDot.classList.remove('connected'));
+        setInterval(() => { socket.emit('ping-keep-alive'); }, 1000 * 60 * 5);
 
         function speak(text) {
             window.speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'pt-BR';
-            utterance.rate = 1.1;
-            window.speechSynthesis.speak(utterance);
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = 'pt-BR'; u.rate = 1.1;
+            window.speechSynthesis.speak(u);
         }
 
         socket.on('update-call', (data) => {
             const currentText = elName.innerText;
-            
             elName.innerText = data.name;
             elSector.innerText = data.sector;
             elRoom.innerText = data.room;
 
+            // Mostra/Esconde selo de prioridade
+            elBadge.style.display = data.prioridade ? 'block' : 'none';
+
             if(data.name !== "BEM-VINDO" && (data.name !== currentText || data.isRepeat)) {
-                
                 elCard.classList.remove('blink');
                 void elCard.offsetWidth; 
                 elCard.classList.add('blink');
                 setTimeout(() => elCard.classList.remove('blink'), 4000);
 
-                let textToSpeak = `${data.name}, compareça ao ${data.sector}, na ${data.room}`;
-                
-                if (data.isRepeat) {
-                    textToSpeak = `Atenção, chamando novamente. ${textToSpeak}`;
-                }
-
-                // Dica: Fala em minúsculo soa melhor, mas a tela mostra maiúsculo pelo CSS
-                speak(textToSpeak.toLowerCase()); 
+                let text = `${data.name}, compareça ao ${data.sector}, na ${data.room}`;
+                if (data.prioridade) text = `Atendimento prioritário. ${text}`;
+                if (data.isRepeat) text = `Atenção. ${text}`;
+                speak(text.toLowerCase()); 
             }
+        });
+
+        // Recebe o Histórico e desenha no rodapé
+        socket.on('update-history', (lista) => {
+            historyList.innerHTML = '';
+            lista.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.innerHTML = `
+                    <span class="hist-name">${item.name}</span>
+                    <span class="hist-loc">${item.room} - ${item.sector}</span>
+                `;
+                historyList.appendChild(div);
+            });
         });
     </script>
 </body>

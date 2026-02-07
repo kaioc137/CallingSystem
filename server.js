@@ -9,101 +9,109 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ESTADO DO SISTEMA
 let filaDeEspera = []; 
+let historicoChamadas = []; // Guarda os últimos 3
 let ultimoChamado = { name: "BEM-VINDO", sector: "AGUARDE", room: "" };
 
 io.on('connection', (socket) => {
-    // Envia dados iniciais
+    // 1. Envia tudo ao conectar
     socket.emit('update-call', ultimoChamado);
     socket.emit('update-queue', filaDeEspera);
+    socket.emit('update-history', historicoChamadas);
 
-    socket.on('ping-keep-alive', () => {
-        // Apenas recebe o sinal para manter a conexão ativa
-        // Comentei o log para não poluir seu terminal, já que roda a cada 5 min
-        // console.log("Ping recebido, mantendo servidor acordado.");
-    });
-    
-    // PLANO B: RESTAURAR FILA (Recuperação de desastre)
-    socket.on('restore-queue', (listaBackup) => {
-        // Validação básica
-        if (Array.isArray(listaBackup)) {
-            console.log("Restaurando fila via backup da recepção...");
-            filaDeEspera = listaBackup;
-            io.emit('update-queue', filaDeEspera);
-        }
-    });
+    // Keep-Alive
+    socket.on('ping-keep-alive', () => {});
 
-    // NOVA FUNÇÃO: REMOVER DA FILA (Botão de Lixeira)
-    socket.on('remove-from-queue', (index) => {
-        // Validação básica para evitar erros
-        if (typeof index === 'number' && index >= 0 && index < filaDeEspera.length) {
-            console.log(`Removendo cliente na posição: ${index}`);
-            filaDeEspera.splice(index, 1); // Remove 1 item nessa posição
-            io.emit('update-queue', filaDeEspera);
-        }
-    });
-
-    // 1. RECEPÇÃO ADICIONA (BLINDADO)
+    // 2. ADICIONAR (COM LÓGICA DE PRIORIDADE CORRIGIDA)
     socket.on('add-to-queue', (dadosPessoa) => {
-        // SEGURANÇA CRÍTICA: Verifica se os dados existem antes de processar
-        if (!dadosPessoa || !dadosPessoa.nome) {
-            console.error("Tentativa de cadastro inválida recebida (nome vazio ou nulo).");
-            return; // Cancela a operação e salva o servidor de cair
-        }
+        if (!dadosPessoa || !dadosPessoa.nome) return;
 
         try {
-            // Garante que é string antes de dar UpperCase
             dadosPessoa.nome = String(dadosPessoa.nome).toUpperCase();
             
-            filaDeEspera.push(dadosPessoa);
+            // LÓGICA DE PRIORIDADE (COMPATÍVEL COM QUALQUER NODE.JS)
+            if (dadosPessoa.prioridade) {
+                // Em vez de findLastIndex, vamos procurar manualmente de trás pra frente
+                let ultimoPrioritarioIndex = -1;
+                
+                for (let i = filaDeEspera.length - 1; i >= 0; i--) {
+                    if (filaDeEspera[i].prioridade) {
+                        ultimoPrioritarioIndex = i;
+                        break; // Achou o último prioridade, para o loop
+                    }
+                }
+                
+                if (ultimoPrioritarioIndex === -1) {
+                    // Nenhuma prioridade na fila, entra no topo
+                    filaDeEspera.unshift(dadosPessoa);
+                } else {
+                    // Entra logo após a última prioridade encontrada
+                    filaDeEspera.splice(ultimoPrioritarioIndex + 1, 0, dadosPessoa);
+                }
+            } else {
+                // Normal: vai para o fim da fila
+                filaDeEspera.push(dadosPessoa);
+            }
+
             io.emit('update-queue', filaDeEspera);
         } catch (erro) {
-            console.error("Erro ao processar adição na fila:", erro);
+            console.error("Erro ao adicionar:", erro);
         }
     });
 
-    // 2. SALA CHAMA (BLINDADO)
+    // 3. REMOVER (LIXEIRA)
+    socket.on('remove-from-queue', (index) => {
+        if (index >= 0 && index < filaDeEspera.length) {
+            filaDeEspera.splice(index, 1);
+            io.emit('update-queue', filaDeEspera);
+        }
+    });
+
+    // 4. CHAMAR PRÓXIMO + HISTÓRICO
     socket.on('request-next', (dadosSala) => {
-        // Segurança: verifica se o setor veio corretamente
-        if (!dadosSala || !dadosSala.setorCodigo) {
-            console.error("Requisição de chamada inválida (sem código de setor).");
-            return;
-        }
+        if (!dadosSala || !dadosSala.setorCodigo) return;
 
-        try {
-            const index = filaDeEspera.findIndex(pessoa => pessoa.setorCodigo === dadosSala.setorCodigo);
+        const index = filaDeEspera.findIndex(pessoa => pessoa.setorCodigo === dadosSala.setorCodigo);
 
-            if (index > -1) {
-                const pessoaChamada = filaDeEspera.splice(index, 1)[0];
-                
-                ultimoChamado = {
-                    name: pessoaChamada.nome,
-                    room: dadosSala.room,
-                    sector: dadosSala.setorNome,
-                    isRepeat: false // Marca como chamado novo
-                };
+        if (index > -1) {
+            const pessoaChamada = filaDeEspera.splice(index, 1)[0];
+            
+            ultimoChamado = {
+                name: pessoaChamada.nome,
+                room: dadosSala.room,
+                sector: dadosSala.setorNome,
+                isRepeat: false,
+                prioridade: pessoaChamada.prioridade // Passa a info se é prioridade
+            };
 
-                io.emit('update-call', ultimoChamado);
-                io.emit('update-queue', filaDeEspera);
-            } else {
-                socket.emit('error-empty', 'Não há ninguém aguardando para o seu setor.');
-            }
-        } catch (erro) {
-            console.error("Erro ao processar chamada de senha:", erro);
+            // Atualiza Histórico (Mantém apenas os últimos 3)
+            historicoChamadas.unshift({ ...ultimoChamado }); 
+            if (historicoChamadas.length > 3) historicoChamadas.pop();
+
+            io.emit('update-call', ultimoChamado);
+            io.emit('update-history', historicoChamadas);
+            io.emit('update-queue', filaDeEspera);
+        } else {
+            socket.emit('error-empty', 'Não há ninguém aguardando para o seu setor.');
         }
     });
 
-    // 3. REPETIR CHAMADA
+    // 5. REPETIR
     socket.on('repeat-call', () => {
         if (ultimoChamado.name !== "BEM-VINDO") {
-            // Reenvia o mesmo dado, mas com flag de repetição
             io.emit('update-call', { ...ultimoChamado, isRepeat: true });
+        }
+    });
+
+    // 6. RESTAURAR BACKUP
+    socket.on('restore-queue', (listaBackup) => {
+        if (Array.isArray(listaBackup)) {
+            filaDeEspera = listaBackup;
+            io.emit('update-queue', filaDeEspera);
         }
     });
 });
 
 const PORT = process.env.PORT || 3000; 
-
-server.listen(PORT, () => {
-    console.log(`Servidor rodando na porta ${PORT}`);
-});
+server.listen(PORT, () => console.log(`Rodando na porta ${PORT}`));
