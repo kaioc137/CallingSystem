@@ -5,15 +5,27 @@
     <title>Painel Administrativo</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #ecf0f1; padding: 40px; }
-        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
-        .card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
-        .number { font-size: 3rem; font-weight: bold; color: #2c3e50; margin: 10px 0; }
-        .label { color: #7f8c8d; text-transform: uppercase; font-size: 0.9rem; letter-spacing: 1px; }
-        .refresh-btn { margin-top: 30px; padding: 10px 20px; background: #2980b9; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        h1, h2 { color: #2c3e50; }
+        
+        /* Grid Principal */
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 40px; }
+        
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
+        .number { font-size: 2.5rem; font-weight: bold; color: #2c3e50; margin: 10px 0; }
+        .label { color: #7f8c8d; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; }
+        
+        /* Tabela/Grid de Setores */
+        .sector-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; }
+        .sector-card { background: #fff; border-left: 5px solid #3498db; padding: 15px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .sector-name { font-weight: bold; font-size: 1.1rem; color: #34495e; margin-bottom: 10px; display: block; }
+        .sector-stats { display: flex; justify-content: space-between; font-size: 0.9rem; color: #555; }
+
+        .refresh-btn { margin-top: 30px; padding: 10px 20px; background: #2980b9; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 1rem; }
+        .refresh-btn:hover { background: #21618c; }
     </style>
 </head>
 <body>
-    <h1>📊 Estatísticas de Atendimento</h1>
+    <h1>📊 Visão Geral</h1>
     
     <div class="dashboard">
         <div class="card">
@@ -25,29 +37,61 @@
             <div class="number" id="atendidosHoje" style="color: #27ae60">0</div>
         </div>
         <div class="card">
-            <div class="label">Tempo Médio de Espera</div>
+            <div class="label">Média de Espera (Geral)</div>
             <div class="number" id="media">0<span style="font-size:1rem">min</span></div>
         </div>
         <div class="card">
-            <div class="label">Total Geral (Histórico)</div>
+            <div class="label">Total Histórico</div>
             <div class="number" id="total">0</div>
         </div>
     </div>
+
+    <h2>🏢 Detalhes por Setor (Hoje)</h2>
+    <div id="sectorContainer" class="sector-grid">
+        </div>
 
     <button class="refresh-btn" onclick="carregarDados()">🔄 Atualizar Dados</button>
 
     <script>
         async function carregarDados() {
-            const res = await fetch('/api/stats');
-            const dados = await res.json();
+            try {
+                const res = await fetch('/api/stats');
+                const dados = await res.json();
 
-            document.getElementById('fila').innerText = dados.totalFila;
-            document.getElementById('atendidosHoje').innerText = dados.atendidosHoje;
-            document.getElementById('media').innerText = dados.mediaMinutos;
-            document.getElementById('total').innerText = dados.totalAtendidos;
+                // 1. Atualiza Geral
+                document.getElementById('fila').innerText = dados.totalFila;
+                document.getElementById('atendidosHoje').innerText = dados.atendidosHoje;
+                document.getElementById('media').innerText = dados.mediaMinutos;
+                document.getElementById('total').innerText = dados.totalAtendidos;
+
+                // 2. Atualiza Por Setor
+                const container = document.getElementById('sectorContainer');
+                container.innerHTML = ""; // Limpa anterior
+
+                if (dados.porSetor && dados.porSetor.length > 0) {
+                    dados.porSetor.forEach(setor => {
+                        const div = document.createElement('div');
+                        div.className = 'sector-card';
+                        div.innerHTML = `
+                            <span class="sector-name">${setor.nome}</span>
+                            <div class="sector-stats">
+                                <span>👥 ${setor.qtd} atendidos</span>
+                                <span>⏱️ ${setor.media} min espera</span>
+                            </div>
+                        `;
+                        container.appendChild(div);
+                    });
+                } else {
+                    container.innerHTML = '<p style="color:#999; grid-column: 1/-1;">Nenhum atendimento realizado hoje ainda.</p>';
+                }
+
+            } catch (err) {
+                console.error("Erro ao buscar dados", err);
+            }
         }
-        carregarDados(); // Carrega ao abrir
-        setInterval(carregarDados, 30000); // Atualiza a cada 30 seg
+
+        carregarDados(); 
+        setInterval(carregarDados, 15000); // Atualiza a cada 15s
     </script>
 </body>
 </html>

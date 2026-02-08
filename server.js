@@ -125,13 +125,56 @@ app.get('/api/stats', async (req, res) => {
     try {
         const totalAtendidos = await Cliente.countDocuments({ status: 'atendido' });
         const totalFila = await Cliente.countDocuments({ status: 'aguardando' });
+        
         const hoje = new Date();
         hoje.setHours(0,0,0,0);
-        const atendidosHoje = await Cliente.find({ status: 'atendido', dataAtendimento: { $gte: hoje } });
-        let tempoTotal = 0;
-        atendidosHoje.forEach(c => { tempoTotal += (c.dataAtendimento - c.dataChegada); });
-        const mediaMinutos = atendidosHoje.length > 0 ? Math.floor((tempoTotal / atendidosHoje.length) / 60000) : 0;
-        res.json({ totalAtendidos, totalFila, mediaMinutos, atendidosHoje: atendidosHoje.length });
+        
+        // Busca todos atendidos hoje
+        const atendidosHoje = await Cliente.find({ 
+            status: 'atendido', 
+            dataAtendimento: { $gte: hoje } 
+        });
+
+        let tempoTotalGeral = 0;
+        const statsPorSetor = {};
+
+        // Processa os dados para separar por setor
+        atendidosHoje.forEach(c => {
+            const diff = c.dataAtendimento - c.dataChegada;
+            tempoTotalGeral += diff;
+
+            const setor = c.setorNome || "Outros";
+
+            if (!statsPorSetor[setor]) {
+                statsPorSetor[setor] = { qtd: 0, tempoTotal: 0 };
+            }
+            statsPorSetor[setor].qtd++;
+            statsPorSetor[setor].tempoTotal += diff;
+        });
+
+        // Calcula média geral
+        const mediaGeral = atendidosHoje.length > 0 
+            ? Math.floor((tempoTotalGeral / atendidosHoje.length) / 60000) 
+            : 0;
+
+        // Formata o array por setor para enviar ao front
+        const porSetor = Object.keys(statsPorSetor).map(nomeSetor => {
+            const dados = statsPorSetor[nomeSetor];
+            return {
+                nome: nomeSetor,
+                qtd: dados.qtd,
+                media: Math.floor((dados.tempoTotal / dados.qtd) / 60000)
+            };
+        });
+
+        res.json({ 
+            totalAtendidos, 
+            totalFila, 
+            mediaMinutos: mediaGeral, 
+            atendidosHoje: atendidosHoje.length,
+            porSetor // Envia a lista detalhada
+        });
+
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
