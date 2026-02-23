@@ -7,7 +7,32 @@
         .label { font-size: 1.2rem; color: #7f8c8d; letter-spacing: 2px; margin-bottom: 5px; text-transform: uppercase; }
         .name-display { font-size: 5rem; font-weight: 800; color: #2c3e50; margin: 10px 0; line-height: 1; text-transform: uppercase; }
         
-        .info-group { display: flex; justify-content: center; gap: 30px; margin-top: 20px; border-top: 2px solid #bdc3c7; padding-top: 15px; }
+              /* Container que segura o Setor e o Local */
+        .info-group {
+            display: flex;
+            justify-content: center; /* Centraliza o bloco */
+            align-items: center;     /* Alinha verticalmente */
+            margin-top: 30px;
+            gap: 80px;               /* <--- AQUI: Aumentamos muito o espaço (era uns 20px) */
+        }
+
+        /* Estilo para cada bloco individual (Setor e Local) */
+        .info-group > div {
+            flex: 1;                 /* Faz eles tentarem ocupar o mesmo tamanho */
+            text-align: center;
+            position: relative;      /* Necessário para desenhar a linha */
+        }
+
+        /* CRIA UMA LINHA VERTICAL ENTRE ELES */
+        .info-group > div:first-child::after {
+            content: "";
+            position: absolute;
+            right: -40px;            /* Posiciona a linha exatamente no meio do gap (metade de 80px) */
+            top: 10%;
+            height: 80%;             /* Altura da linha (não vai até a borda total) */
+            width: 2px;              /* Espessura da linha */
+            background-color: #ddd;  /* Cor da linha (cinza suave) */
+        }
         .info-value { font-size: 2.2rem; font-weight: bold; color: #c0392b; text-transform: uppercase; }
         .sector-value { font-size: 1.8rem; color: #2980b9; font-weight: bold; text-transform: uppercase; }
 
