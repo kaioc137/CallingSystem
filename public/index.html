@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Login - CallingSystem</title>
+    <link rel="stylesheet" href="/css/login.css">
+</head>
+<body>
+    <div class="login-card">
+        <h2>🔐 Acesso Restrito</h2>
+        
+        <form id="loginForm">
+            <select id="userType">
+                <option value="recepcao">Recepção</option>
+                <option value="sala">Atendimento (Sala)</option>
+                <option value="admin">Administrador</option>
+            </select>
+            
+            <input type="password" id="password" placeholder="Digite a senha" required>
+            
+            <button type="submit">ENTRAR</button>
+            <p class="error" id="errorMsg">Senha incorreta!</p>
+        </form>
+    </div>
+
+    <script src="/js/login.js"></script>
+
+</body>
+</html>

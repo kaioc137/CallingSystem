@@ -4,19 +4,83 @@ const http = require('http');
 const { Server } = require("socket.io");
 const path = require('path');
 const mongoose = require('mongoose');
+const session = require('express-session'); // <--- BIBLIOTECA DE LOGIN
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.static(path.join(__dirname, 'public')));
+// --- 1. CONFIGURAÇÕES INICIAIS ---
+
+// Configuração da Sessão (Login)
+app.use(session({
+    secret: 'segredo-super-secreto-do-kaio', // Chave de segurança
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false } // Em produção HTTPS, ideal seria true
+}));
+
 app.use(express.json());
 
-// --- 1. CONFIGURAÇÃO DO BANCO (Apenas define a variável aqui) ---
-// Tenta pegar do Render (process.env) OU usa a string local para testes
+// Serve arquivos PÚBLICOS (Login, TV Painel, CSS, Imagens)
+// Tudo que estiver na pasta 'public' qualquer um pode acessar sem senha
+app.use(express.static(path.join(__dirname, 'public')));
+
+// --- 2. SISTEMA DE LOGIN E SEGURANÇA ---
+
+// Senhas (Pega do .env ou usa padrão se não tiver)
+const SENHAS = {
+    recepcao: process.env.SENHA_RECEP || "admin123",
+    sala: process.env.SENHA_SALA || "sala123",
+    admin: process.env.SENHA_ADMIN || "master123"
+};
+
+// Rota de Login (Recebe usuário e senha do index.html)
+app.post('/login', (req, res) => {
+    const { tipo, senha } = req.body;
+
+    if (SENHAS[tipo] && SENHAS[tipo] === senha) {
+        req.session.user = tipo;     // Salva quem é
+        req.session.isLogged = true; // Marca como logado
+
+        // Define para onde mandar o usuário
+        let destino = '/recepcao';
+        if (tipo === 'sala') destino = '/salas';
+        if (tipo === 'admin') destino = '/admin';
+
+        return res.json({ success: true, redirect: destino });
+    }
+
+    res.json({ success: false });
+});
+
+// Middleware (O Porteiro): Só deixa passar se estiver logado
+function verificarAutenticacao(req, res, next) {
+    if (req.session.isLogged) {
+        return next(); // Pode passar
+    }
+    res.redirect('/'); // Não tem crachá? Volta pro login
+}
+
+// --- 3. ROTAS PROTEGIDAS (Arquivos na pasta 'private') ---
+
+app.get('/recepcao', verificarAutenticacao, (req, res) => {
+    res.sendFile(path.join(__dirname, 'private', 'recepcao.html'));
+});
+
+app.get('/salas', verificarAutenticacao, (req, res) => {
+    res.sendFile(path.join(__dirname, 'private', 'salas.html'));
+});
+
+app.get('/admin', verificarAutenticacao, (req, res) => {
+    res.sendFile(path.join(__dirname, 'private', 'admin.html'));
+});
+
+
+// --- 4. CONFIGURAÇÃO DO BANCO DE DADOS (MongoDB) ---
 const mongoURI = process.env.MONGO_URI || "mongodb+srv://SEU_USUARIO:SUA_SENHA@cluster0.mongodb.net/?retryWrites=true&w=majority";
 
-// --- 2. MODELO DE DADOS ---
+// Modelo de Dados
 const ClienteSchema = new mongoose.Schema({
     nome: String,
     setorCodigo: String,
@@ -30,7 +94,8 @@ const ClienteSchema = new mongoose.Schema({
 
 const Cliente = mongoose.model('Cliente', ClienteSchema);
 
-// --- 3. MEMÓRIA ---
+// --- 5. LÓGICA DO SOCKET.IO (Fila e Chamadas) ---
+
 let historicoChamadas = [];
 let ultimoChamado = { name: "BEM-VINDO", sector: "AGUARDE", room: "" };
 
@@ -51,7 +116,6 @@ function reordenarPorPrioridade(lista) {
     return [...prioridades, ...normais];
 }
 
-// --- 4. SOCKET.IO ---
 io.on('connection', async (socket) => {
     const filaAtual = await carregarFilaDoBanco();
     socket.emit('update-call', ultimoChamado);
@@ -121,6 +185,7 @@ io.on('connection', async (socket) => {
     });
 });
 
+// --- 6. ROTA DE ESTATÍSTICAS (Por Setor) ---
 app.get('/api/stats', async (req, res) => {
     try {
         const totalAtendidos = await Cliente.countDocuments({ status: 'atendido' });
@@ -129,7 +194,6 @@ app.get('/api/stats', async (req, res) => {
         const hoje = new Date();
         hoje.setHours(0,0,0,0);
         
-        // Busca todos atendidos hoje
         const atendidosHoje = await Cliente.find({ 
             status: 'atendido', 
             dataAtendimento: { $gte: hoje } 
@@ -138,11 +202,9 @@ app.get('/api/stats', async (req, res) => {
         let tempoTotalGeral = 0;
         const statsPorSetor = {};
 
-        // Processa os dados para separar por setor
         atendidosHoje.forEach(c => {
             const diff = c.dataAtendimento - c.dataChegada;
             tempoTotalGeral += diff;
-
             const setor = c.setorNome || "Outros";
 
             if (!statsPorSetor[setor]) {
@@ -152,12 +214,10 @@ app.get('/api/stats', async (req, res) => {
             statsPorSetor[setor].tempoTotal += diff;
         });
 
-        // Calcula média geral
         const mediaGeral = atendidosHoje.length > 0 
             ? Math.floor((tempoTotalGeral / atendidosHoje.length) / 60000) 
             : 0;
 
-        // Formata o array por setor para enviar ao front
         const porSetor = Object.keys(statsPorSetor).map(nomeSetor => {
             const dados = statsPorSetor[nomeSetor];
             return {
@@ -167,20 +227,13 @@ app.get('/api/stats', async (req, res) => {
             };
         });
 
-        res.json({ 
-            totalAtendidos, 
-            totalFila, 
-            mediaMinutos: mediaGeral, 
-            atendidosHoje: atendidosHoje.length,
-            porSetor // Envia a lista detalhada
-        });
-
+        res.json({ totalAtendidos, totalFila, mediaMinutos: mediaGeral, atendidosHoje: atendidosHoje.length, porSetor });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 const PORT = process.env.PORT || 3000;
 
-// --- 5. INICIALIZAÇÃO SEGURA (BANCO ANTES DO SERVIDOR) ---
+// --- 7. INICIALIZAÇÃO (Conecta Banco -> Inicia Servidor) ---
 console.log("⏳ Tentando conectar ao MongoDB...");
 
 mongoose.connect(mongoURI)

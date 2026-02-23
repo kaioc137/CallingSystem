@@ -1,0 +1,44 @@
+body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; margin: 0; padding-bottom: 50px; }
+
+header {
+    background-color: #2c3e50;
+    color: white;
+    padding: 20px;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    z-index: 100;
+}
+
+.label { font-size: 0.8rem; letter-spacing: 2px; opacity: 0.8; margin-bottom: 5px; }
+.big-name { font-size: 2rem; font-weight: bold; color: #f1c40f; text-transform: uppercase; line-height: 1.1; }
+.big-loc { font-size: 1.2rem; color: #ecf0f1; margin-top: 5px; }
+
+main { padding: 15px; max-width: 600px; margin: auto; }
+h3 { color: #7f8c8d; font-size: 0.9rem; text-transform: uppercase; border-bottom: 2px solid #ccc; padding-bottom: 10px; }
+
+ul { list-style: none; padding: 0; }
+li {
+    background: white;
+    margin-bottom: 10px;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-left: 5px solid #3498db;
+}
+
+/* Destaque para prioridades */
+li.prioridade { border-left-color: #e67e22; background-color: #fffaf0; }
+
+.nome-fila { font-weight: bold; font-size: 1.1rem; color: #2c3e50; }
+.setor-fila { font-size: 0.8rem; color: #7f8c8d; background: #eee; padding: 3px 8px; border-radius: 4px; }
+
+li.loading { text-align: center; color: #999; border: none; box-shadow: none; background: transparent; }
+
+footer {
+    text-align: center; font-size: 0.8rem; color: #999; padding: 20px;
+}

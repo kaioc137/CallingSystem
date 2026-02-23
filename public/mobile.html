@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>Acompanhe sua Vez</title>
+    <link rel="stylesheet" href="/css/mobile.css">
+</head>
+<body>
+
+    <header>
+        <div class="label">CHAMANDO AGORA:</div>
+        <div id="bigName" class="big-name">...</div>
+        <div id="bigLoc" class="big-loc">AGUARDE</div>
+    </header>
+
+    <main>
+        <h3>NA FILA DE ESPERA:</h3>
+        <ul id="mobileList">
+            <li class="loading">Carregando fila...</li>
+        </ul>
+    </main>
+
+    <footer>
+        Atualizado em tempo real 🟢
+    </footer>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/mobile.js"></script>
+</body>
+</html>

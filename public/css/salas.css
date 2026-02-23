@@ -1,0 +1,82 @@
+  body { font-family: 'Segoe UI', sans-serif; background-color: #e9ecef; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        
+        .panel { 
+            background: white; 
+            padding: 30px; 
+            border-radius: 15px; 
+            width: 100%; 
+            max-width: 500px; 
+            text-align: center; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1); 
+            display: flex;
+            flex-direction: column;
+            max-height: 90vh; /* Impede que o painel fique maior que a tela */
+        }
+        
+        select { width: 100%; padding: 12px; margin-bottom: 20px; font-size: 1rem; border: 1px solid #ccc; border-radius: 5px; background: #fff; text-transform: uppercase; }
+        
+        .button-group { display: flex; gap: 10px; width: 100%; margin-bottom: 20px; }
+
+        button { padding: 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; transition: 0.2s; font-size: 1.1rem; }
+        button:hover { transform: scale(1.02); }
+
+        .btn-repeat { background-color: #f39c12; flex: 1; } 
+        .btn-repeat:hover { background-color: #e67e22; }
+
+        .btn-call { background-color: #2980b9; flex: 2; } 
+        .btn-call:hover { background-color: #3498db; }
+        
+        .status-box { 
+            background: #f8f9fa; 
+            border-radius: 8px; 
+            border: 1px solid #eee; 
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Garante que o conteúdo não vaze */
+            flex: 1; /* Ocupa o espaço restante */
+        }
+        
+        .header-status {
+            padding: 15px;
+            background: #fff;
+            border-bottom: 1px solid #eee;
+        }
+
+        .count-big { font-size: 2rem; font-weight: bold; color: #e67e22; display: block; line-height: 1; margin-top: 5px;}
+        .label-small { color: #7f8c8d; font-size: 0.9rem; }
+
+        /* Nova Lista de Nomes */
+        .queue-list-container {
+            flex: 1;
+            overflow-y: auto; /* Cria barra de rolagem se a lista for grande */
+            padding: 0;
+            margin: 0;
+            background-color: #fff;
+            text-align: left;
+        }
+
+        .queue-list-container ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .queue-list-container li {
+            padding: 10px 15px;
+            border-bottom: 1px solid #f1f1f1;
+            color: #555;
+            font-size: 0.95rem;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .queue-list-container li:last-child { border-bottom: none; }
+        .queue-list-container li:nth-child(even) { background-color: #fafafa; }
+        
+        /* Destaque para o primeiro da fila */
+        .queue-list-container li:first-child {
+            background-color: #e8f6f3;
+            color: #16a085;
+            font-weight: bold;
+            border-left: 4px solid #1abc9c;
+        }

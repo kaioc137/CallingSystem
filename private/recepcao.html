@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Recepção - Triagem</title>
+    <link rel="stylesheet" href="/css/recepcao.css">
+</head>
+<body>
+
+    <h2>RECEPÇÃO</h2>
+    
+    <div class="input-group">
+        <label>NOME:</label>
+        <input type="text" id="nameInput" placeholder="EX: MARIA DA SILVA" autofocus>
+
+        <label>ENCAMINHAR PARA:</label>
+        <select id="sectorInput">
+            <option value="estagio">ESTÁGIO</option>
+            <option value="terceirizados">TERCEIRIZADOS (SALA A1)</option>
+            <option value="diretoria">DIRETORIA DO DGRH (SALA A2)</option> <option value="terceirizados">TERCEIRIZADOS (SALA A1)</option>
+            <option value="frequencia">FREQUÊNCIA (SALA A3)</option>
+            <option value="lotacao">LOTAÇÃO (SALA A4)</option>
+            <option value="ferias">FÉRIAS / RH (SALA A5)</option>
+        </select>
+
+        <div class="priority-wrapper">
+            <input type="checkbox" id="priorityInput">
+            <label for="priorityInput">ATENDIMENTO PRIORITÁRIO (Lei 10.048)</label>
+        </div>
+
+        <button class="btn-add" onclick="addPerson()">CADASTRAR (+)</button>
+    </div>
+
+    <div id="restoreArea">
+        <strong>⚠️ Servidor Reiniciou!</strong> Restaurar fila salva?
+        <button onclick="restoreQueue()">SIM</button> <button onclick="ignoreBackup()">NÃO</button>
+    </div>
+
+    <h3>FILA DE ESPERA (<span id="count">0</span>)</h3>
+    <ul id="queueList"></ul>
+
+    <script src="/socket.io/socket.io.js"></script> 
+    <script src="/js/recepcao.js"></script>
+
+</body>
+</html>

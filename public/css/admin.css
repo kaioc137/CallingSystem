@@ -1,0 +1,18 @@
+        body { font-family: 'Segoe UI', sans-serif; background: #ecf0f1; padding: 40px; }
+        h1, h2 { color: #2c3e50; }
+        
+        /* Grid Principal */
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 40px; }
+        
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
+        .number { font-size: 2.5rem; font-weight: bold; color: #2c3e50; margin: 10px 0; }
+        .label { color: #7f8c8d; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; }
+        
+        /* Tabela/Grid de Setores */
+        .sector-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; }
+        .sector-card { background: #fff; border-left: 5px solid #3498db; padding: 15px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .sector-name { font-weight: bold; font-size: 1.1rem; color: #34495e; margin-bottom: 10px; display: block; }
+        .sector-stats { display: flex; justify-content: space-between; font-size: 0.9rem; color: #555; }
+
+        .refresh-btn { margin-top: 30px; padding: 10px 20px; background: #2980b9; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 1rem; }
+        .refresh-btn:hover { background: #21618c; }

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Painel Administrativo</title>
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+    <h1>📊 Visão Geral</h1>
+    
+    <div class="dashboard">
+        <div class="card">
+            <div class="label">Pessoas na Fila</div>
+            <div class="number" id="fila">0</div>
+        </div>
+        <div class="card">
+            <div class="label">Atendidos Hoje</div>
+            <div class="number" id="atendidosHoje" style="color: #27ae60">0</div>
+        </div>
+        <div class="card">
+            <div class="label">Média de Espera (Geral)</div>
+            <div class="number" id="media">0<span style="font-size:1rem">min</span></div>
+        </div>
+        <div class="card">
+            <div class="label">Total Histórico</div>
+            <div class="number" id="total">0</div>
+        </div>
+    </div>
+
+    <h2>🏢 Detalhes por Setor (Hoje)</h2>
+    <div id="sectorContainer" class="sector-grid">
+        </div>
+
+    <button class="refresh-btn" onclick="carregarDados()">🔄 Atualizar Dados</button>
+
+    <script src="/js/admin.js"></script>
+
+ </body>
+</html>
