@@ -35,5 +35,11 @@
             }
         }
 
+        function baixarRelatorio() {
+        // Simplesmente redireciona o navegador para a rota que criamos
+        // Isso força o download automático
+        window.location.href = '/api/reports/csv';
+}
+
         carregarDados(); 
         setInterval(carregarDados, 15000); // Atualiza a cada 15s

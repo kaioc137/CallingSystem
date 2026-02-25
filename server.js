@@ -231,6 +231,47 @@ app.get('/api/stats', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// --- 6.1 ROTA DE EXPORTAÇÃO (RELATÓRIO CSV) ---
+app.get('/api/reports/csv', async (req, res) => {
+    try {
+        // Busca apenas quem já foi atendido, do mais recente para o mais antigo
+        const atendidos = await Cliente.find({ status: 'atendido' }).sort({ dataAtendimento: -1 });
+
+        // Cria o cabeçalho do CSV (usando ponto-e-vírgula para o Excel brasileiro entender as colunas)
+        let csv = 'Nome;Setor;Prioridade;Data Chegada;Data Atendimento;Espera (min);Sala\n';
+
+        atendidos.forEach(c => {
+            // Formata as datas para o padrão brasileiro (DD/MM/AAAA HH:mm)
+            const chegada = c.dataChegada ? new Date(c.dataChegada).toLocaleString('pt-BR') : '-';
+            const atendimento = c.dataAtendimento ? new Date(c.dataAtendimento).toLocaleString('pt-BR') : '-';
+            
+            // Calcula o tempo de espera em minutos
+            let espera = 0;
+            if(c.dataChegada && c.dataAtendimento) {
+                espera = Math.floor((new Date(c.dataAtendimento) - new Date(c.dataChegada)) / 60000);
+            }
+
+            // Limpa ponto-e-vírgula dos nomes para não quebrar o arquivo
+            const nome = (c.nome || '').replace(/;/g, ' ');
+            const setor = (c.setorNome || '').replace(/;/g, ' ');
+            const sala = (c.salaAtendimento || '').replace(/;/g, ' ');
+            const prioridade = c.prioridade ? 'SIM' : 'NÃO';
+
+            // Adiciona a linha
+            csv += `${nome};${setor};${prioridade};${chegada};${atendimento};${espera};${sala}\n`;
+        });
+
+        // Configura o navegador para baixar o arquivo
+        res.header('Content-Type', 'text/csv; charset=utf-8');
+        res.header('Content-Disposition', 'attachment; filename="relatorio_atendimentos.csv"');
+        res.send("\uFEFF" + csv); // O \uFEFF força o Excel a abrir com acentos corretos
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).send('Erro ao gerar relatório');
+    }
+});
+
 const PORT = process.env.PORT || 3000;
 
 // --- 7. INICIALIZAÇÃO (Conecta Banco -> Inicia Servidor) ---
