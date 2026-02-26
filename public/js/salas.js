@@ -1,7 +1,7 @@
 const socket = io();
 
 // Variáveis de Estado
-let currentClientId = null; // Guarda o ID do paciente atual para transferência
+let currentClientId = null;
 let config = {
     room: "",
     sectorCodigo: "",
@@ -15,80 +15,123 @@ const configSelect = document.getElementById('configSelect');
 const elCurrentName = document.getElementById('currentName');
 const transferArea = document.getElementById('transferArea');
 const transferSelect = document.getElementById('transferSelect');
+const elMyQueueCount = document.getElementById('myQueueCount');
+const elMySectorList = document.getElementById('mySectorList');
 
-// 1. Configuração da Sala (Ao mudar o select)
+// --- 1. CONFIGURAÇÃO DA SALA ---
+// Quando o médico seleciona "SALA A1" no menu
 configSelect.addEventListener('change', () => {
     const valor = configSelect.value;
+    
     if (valor) {
-        const parts = valor.split('|'); // Ex: "estagio|SALA 1|ESTÁGIO"
+        // Formato esperado: "codigo|sala|nome"
+        // Ex: "estagio|RECEPÇÃO|SETOR DE ESTÁGIO"
+        const parts = valor.split('|'); 
         config.sectorCodigo = parts[0];
         config.room = parts[1];
         config.sectorNome = parts[2];
         
         // Habilita os botões
-        btnChamar.disabled = false;
-        btnRepetir.disabled = false;
+        if(btnChamar) btnChamar.disabled = false;
+        if(btnRepetir) btnRepetir.disabled = false;
         
-        alert(`Sala configurada: ${config.room} - ${config.sectorNome}`);
+        // Pede a fila atualizada para o servidor para já preencher a lista
+        socket.emit('ping-keep-alive'); 
+        
+        alert(`Sala configurada: ${config.room}\nAtendendo: ${config.sectorNome}`);
     } else {
-        btnChamar.disabled = true;
-        btnRepetir.disabled = true;
+        if(btnChamar) btnChamar.disabled = true;
+        if(btnRepetir) btnRepetir.disabled = true;
+        config.sectorCodigo = "";
     }
 });
 
-// 2. Botão Chamar Próximo
-btnChamar.addEventListener('click', () => {
-    if (!config.sectorCodigo) return alert("Selecione sua sala primeiro!");
-    
-    socket.emit('request-next', {
-        setorCodigo: config.sectorCodigo,
-        setorNome: config.sectorNome,
-        room: config.room
+// --- 2. AÇÃO DOS BOTÕES ---
+
+// Botão CHAMAR PRÓXIMO
+if(btnChamar) {
+    btnChamar.addEventListener('click', () => {
+        if (!config.sectorCodigo) return alert("Selecione sua sala no menu acima primeiro!");
+        
+        socket.emit('request-next', {
+            setorCodigo: config.sectorCodigo,
+            setorNome: config.sectorNome,
+            room: config.room
+        });
     });
+}
+
+// Botão REPETIR
+if(btnRepetir) {
+    btnRepetir.addEventListener('click', () => {
+        if (!config.sectorCodigo) return alert("Configure a sala primeiro!");
+        socket.emit('repeat-call');
+    });
+}
+
+// --- 3. ATUALIZAÇÕES DO SERVIDOR (SOCKET) ---
+
+// A. Recebe a FILA e filtra apenas o meu setor
+socket.on('update-queue', (listaGeral) => {
+    // Se não configurou a sala ainda, não mostra nada
+    if (!config.sectorCodigo) return;
+
+    // 1. Filtra: Só quero ver quem é do meu setor (config.sectorCodigo)
+    const minhaFila = listaGeral.filter(p => p.setorCodigo === config.sectorCodigo);
+
+    // 2. Atualiza o Contador
+    if(elMyQueueCount) elMyQueueCount.innerText = minhaFila.length;
+
+    // 3. Atualiza a Lista Visual (UL)
+    if(elMySectorList) {
+        elMySectorList.innerHTML = ''; // Limpa a lista atual
+        
+        minhaFila.forEach(pessoa => {
+            const li = document.createElement('li');
+            li.className = 'queue-item'; // Classe para estilizar no CSS se quiser
+            
+            // Ícone de prioridade
+            const icone = pessoa.prioridade ? '⭐' : '👤';
+            
+            li.innerHTML = `
+                <span style="font-weight:bold;">${icone} ${pessoa.nome}</span>
+                <span style="font-size:0.8rem; color:#666;">(Chegou: ${new Date(pessoa.dataChegada).toLocaleTimeString().slice(0,5)})</span>
+            `;
+            elMySectorList.appendChild(li);
+        });
+    }
 });
 
-// 3. Botão Repetir Chamada
-btnRepetir.addEventListener('click', () => {
-    socket.emit('repeat-call');
-});
-
-// --- AQUI ESTÁ O QUE FALTAVA ---
-// 4. Recebe a confirmação de quem foi chamado (Atualiza a tela do atendente)
+// B. Recebe a confirmação de quem foi chamado (Para mostrar na tela grande)
 socket.on('update-call', (data) => {
-    // data = { id, name, room, sector, prioridade, isRepeat }
+    if (!elCurrentName) return;
 
     if (data.name !== "BEM-VINDO") {
-        // Alguém foi chamado!
         elCurrentName.innerText = data.name;
-        
-        // Salva o ID para caso queira transferir
         currentClientId = data.id;
 
-        // LÓGICA DE EXIBIÇÃO DA TRANSFERÊNCIA:
         // Só mostra o menu de transferir se o chamado for DESTA sala
-        // (Para evitar que a tela da Recepção mostre o botão de transferir da Diretoria)
         if (data.room === config.room) {
             if(transferArea) transferArea.style.display = 'block';
         } else {
-            // Se for chamado de outra sala, esconde o painel de transferência
             if(transferArea) transferArea.style.display = 'none';
         }
-
     } else {
-        // Ninguém sendo atendido (sistema reiniciado ou fila limpa)
         elCurrentName.innerText = "---";
         currentClientId = null;
         if(transferArea) transferArea.style.display = 'none';
     }
 });
 
+// C. Erros (ex: Fila vazia)
 socket.on('error-empty', (msg) => {
     alert(msg);
 });
 
-// 5. Função de Transferir Cliente
-function transferirCliente() { // Essa função é chamada pelo onclick do botão HTML
-    const valor = transferSelect.value; // Ex: "diretoria|DIRETORIA DO DGRH"
+// --- 4. FUNÇÃO DE TRANSFERÊNCIA ---
+window.transferirCliente = function() {
+    if (!transferSelect) return;
+    const valor = transferSelect.value;
     
     if (!currentClientId) {
         alert("Não há ninguém sendo atendido agora para transferir.");
@@ -99,14 +142,16 @@ function transferirCliente() { // Essa função é chamada pelo onclick do botã
         return;
     }
 
-    // O valor do select vem como "codigo|Nome" (ajuste conforme seu HTML)
-    // Se o seu HTML for value="diretoria|DIRETORIA", usamos split
-    // Se for só value="diretoria", precisa ajustar aqui.
-    // Assumindo formato: codigo|NomeLegivel
-    
-    const parts = valor.split('|');
-    const novoCodigo = parts[0];
-    const novoNome = parts[1] || parts[0].toUpperCase(); // Fallback se não tiver nome
+    // O select pode vir do banco (codigo) ou manual (codigo|Nome)
+    // Vamos assumir formato manual value="codigo|Nome"
+    let novoCodigo = valor;
+    let novoNome = valor.toUpperCase();
+
+    if (valor.includes('|')) {
+        const parts = valor.split('|');
+        novoCodigo = parts[0];
+        novoNome = parts[1];
+    }
 
     if (confirm(`Deseja transferir este cliente para ${novoNome}?`)) {
         socket.emit('transfer-client', {
@@ -115,15 +160,53 @@ function transferirCliente() { // Essa função é chamada pelo onclick do botã
             novoSetorNome: novoNome
         });
         
-        // Limpa a seleção e esconde
+        // Limpa a tela
         transferSelect.value = "";
-        transferArea.style.display = 'none';
+        if(transferArea) transferArea.style.display = 'none';
         elCurrentName.innerText = "--- (Transferido)";
         currentClientId = null;
+        alert("Cliente transferido!");
+    }
+};
+
+// --- 5. CARREGAMENTO INICIAL DE OPÇÕES (SISTEMA DINÂMICO) ---
+async function carregarOpcoesSala() {
+    try {
+        const res = await fetch('/api/config/setores');
+        if (!res.ok) return; // Se der erro na API, mantém o HTML original
         
-        alert("Cliente transferido com sucesso!");
+        const setores = await res.json();
+        
+        // Se a API retornou setores, limpa o select manual e preenche com os do banco
+        if (setores && setores.length > 0) {
+            // 1. Select de Configuração
+            if(configSelect) {
+                configSelect.innerHTML = '<option value="">Selecione sua sala...</option>';
+                setores.forEach(s => {
+                    const opt = document.createElement('option');
+                    // Formato: codigo|sala|nome
+                    opt.value = `${s.codigo}|${s.sala}|${s.nome}`;
+                    opt.innerText = `${s.sala} (${s.nome})`;
+                    configSelect.appendChild(opt);
+                });
+            }
+
+            // 2. Select de Transferência
+            if(transferSelect) {
+                transferSelect.innerHTML = '<option value="">Selecione um destino...</option>';
+                setores.forEach(s => {
+                    const opt = document.createElement('option');
+                    // Formato: codigo|Nome
+                    opt.value = `${s.codigo}|${s.nome}`;
+                    opt.innerText = s.nome;
+                    transferSelect.appendChild(opt);
+                });
+            }
+        }
+    } catch (e) {
+        console.log("Usando configuração manual (API não respondeu ou sem setores).");
     }
 }
 
-// Torna a função global para o HTML conseguir chamar via onclick="..."
-window.transferirCliente = transferirCliente;
+// Inicia
+carregarOpcoesSala();
