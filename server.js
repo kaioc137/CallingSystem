@@ -4,7 +4,7 @@ const http = require('http');
 const { Server } = require("socket.io");
 const path = require('path');
 const mongoose = require('mongoose');
-const session = require('express-session'); // <--- BIBLIOTECA DE LOGIN
+const session = require('express-session');
 
 const app = express();
 const server = http.createServer(app);
@@ -12,75 +12,61 @@ const io = new Server(server);
 
 // --- 1. CONFIGURAÇÕES INICIAIS ---
 
-// Configuração da Sessão (Login)
+// Sessão (Login)
 app.use(session({
-    secret: 'segredo-super-secreto-do-kaio', // Chave de segurança
+    secret: 'segredo-super-secreto-do-kaio',
     resave: false,
     saveUninitialized: true,
-    cookie: { secure: false } // Em produção HTTPS, ideal seria true
+    cookie: { secure: false } // Em produção com HTTPS, o ideal é true
 }));
 
 app.use(express.json());
-
-// Serve arquivos PÚBLICOS (Login, TV Painel, CSS, Imagens)
-// Tudo que estiver na pasta 'public' qualquer um pode acessar sem senha
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- 2. SISTEMA DE LOGIN E SEGURANÇA ---
+// --- 2. SISTEMA DE LOGIN ---
 
-// Senhas (Pega do .env ou usa padrão se não tiver)
 const SENHAS = {
     recepcao: process.env.SENHA_RECEP || "admin123",
     sala: process.env.SENHA_SALA || "sala123",
     admin: process.env.SENHA_ADMIN || "master123"
 };
 
-// Rota de Login (Recebe usuário e senha do index.html)
 app.post('/login', (req, res) => {
     const { tipo, senha } = req.body;
-
     if (SENHAS[tipo] && SENHAS[tipo] === senha) {
-        req.session.user = tipo;     // Salva quem é
-        req.session.isLogged = true; // Marca como logado
-
-        // Define para onde mandar o usuário
+        req.session.user = tipo;
+        req.session.isLogged = true;
+        
         let destino = '/recepcao';
         if (tipo === 'sala') destino = '/salas';
         if (tipo === 'admin') destino = '/admin';
 
         return res.json({ success: true, redirect: destino });
     }
-
     res.json({ success: false });
 });
 
-// Middleware (O Porteiro): Só deixa passar se estiver logado
 function verificarAutenticacao(req, res, next) {
-    if (req.session.isLogged) {
-        return next(); // Pode passar
-    }
-    res.redirect('/'); // Não tem crachá? Volta pro login
+    if (req.session.isLogged) return next();
+    res.redirect('/');
 }
 
-// --- 3. ROTAS PROTEGIDAS (Arquivos na pasta 'private') ---
-
+// Rotas Protegidas
 app.get('/recepcao', verificarAutenticacao, (req, res) => {
     res.sendFile(path.join(__dirname, 'private', 'recepcao.html'));
 });
-
 app.get('/salas', verificarAutenticacao, (req, res) => {
     res.sendFile(path.join(__dirname, 'private', 'salas.html'));
 });
-
 app.get('/admin', verificarAutenticacao, (req, res) => {
     res.sendFile(path.join(__dirname, 'private', 'admin.html'));
 });
 
+// --- 3. BANCO DE DADOS E MODELOS ---
 
-// --- 4. CONFIGURAÇÃO DO BANCO DE DADOS (MongoDB) ---
 const mongoURI = process.env.MONGO_URI || "mongodb+srv://SEU_USUARIO:SUA_SENHA@cluster0.mongodb.net/?retryWrites=true&w=majority";
 
-// Modelo de Dados
+// Modelo Cliente
 const ClienteSchema = new mongoose.Schema({
     nome: String,
     setorCodigo: String,
@@ -91,10 +77,103 @@ const ClienteSchema = new mongoose.Schema({
     dataAtendimento: Date,
     salaAtendimento: String
 });
-
 const Cliente = mongoose.model('Cliente', ClienteSchema);
 
-// --- 5. LÓGICA DO SOCKET.IO (Fila e Chamadas) ---
+// Modelo Setor (Configuração Dinâmica)
+const SetorSchema = new mongoose.Schema({
+    codigo: String,
+    nome: String,
+    sala: String
+});
+const Setor = mongoose.model('Setor', SetorSchema);
+
+// --- 4. API (ROTAS DE DADOS) ---
+
+// 4.1 Estatísticas
+app.get('/api/stats', async (req, res) => {
+    try {
+        const totalAtendidos = await Cliente.countDocuments({ status: 'atendido' });
+        const totalFila = await Cliente.countDocuments({ status: 'aguardando' });
+        
+        const hoje = new Date();
+        hoje.setHours(0,0,0,0);
+        
+        const atendidosHoje = await Cliente.find({ status: 'atendido', dataAtendimento: { $gte: hoje } });
+
+        let tempoTotalGeral = 0;
+        const statsPorSetor = {};
+
+        atendidosHoje.forEach(c => {
+            const diff = c.dataAtendimento - c.dataChegada;
+            tempoTotalGeral += diff;
+            const setor = c.setorNome || "Outros";
+
+            if (!statsPorSetor[setor]) statsPorSetor[setor] = { qtd: 0, tempoTotal: 0 };
+            statsPorSetor[setor].qtd++;
+            statsPorSetor[setor].tempoTotal += diff;
+        });
+
+        const mediaGeral = atendidosHoje.length > 0 ? Math.floor((tempoTotalGeral / atendidosHoje.length) / 60000) : 0;
+        const porSetor = Object.keys(statsPorSetor).map(nome => ({
+            nome,
+            qtd: statsPorSetor[nome].qtd,
+            media: Math.floor((statsPorSetor[nome].tempoTotal / statsPorSetor[nome].qtd) / 60000)
+        }));
+
+        res.json({ totalAtendidos, totalFila, mediaMinutos: mediaGeral, atendidosHoje: atendidosHoje.length, porSetor });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 4.2 Relatório CSV (Excel)
+app.get('/api/reports/csv', async (req, res) => {
+    try {
+        const atendidos = await Cliente.find({ status: 'atendido' }).sort({ dataAtendimento: -1 });
+        let csv = 'Nome;Setor;Prioridade;Data Chegada;Data Atendimento;Espera (min);Sala\n';
+
+        atendidos.forEach(c => {
+            const chegada = c.dataChegada ? new Date(c.dataChegada).toLocaleString('pt-BR') : '-';
+            const atendimento = c.dataAtendimento ? new Date(c.dataAtendimento).toLocaleString('pt-BR') : '-';
+            let espera = 0;
+            if(c.dataChegada && c.dataAtendimento) {
+                espera = Math.floor((new Date(c.dataAtendimento) - new Date(c.dataChegada)) / 60000);
+            }
+            const nome = (c.nome || '').replace(/;/g, ' ');
+            const setor = (c.setorNome || '').replace(/;/g, ' ');
+            const sala = (c.salaAtendimento || '').replace(/;/g, ' ');
+            const prioridade = c.prioridade ? 'SIM' : 'NÃO';
+            csv += `${nome};${setor};${prioridade};${chegada};${atendimento};${espera};${sala}\n`;
+        });
+
+        res.header('Content-Type', 'text/csv; charset=utf-8');
+        res.header('Content-Disposition', 'attachment; filename="relatorio_atendimentos.csv"');
+        res.send("\uFEFF" + csv);
+    } catch (e) { res.status(500).send('Erro ao gerar relatório'); }
+});
+
+// 4.3 Configuração de Setores (O QUE ESTAVA FALTANDO)
+app.get('/api/config/setores', async (req, res) => {
+    try {
+        const setores = await Setor.find();
+        res.json(setores);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/config/setores', async (req, res) => {
+    try {
+        await Setor.create(req.body);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/config/setores/:id', async (req, res) => {
+    try {
+        await Setor.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+
+// --- 5. SOCKET.IO (TEMPO REAL) ---
 
 let historicoChamadas = [];
 let ultimoChamado = { name: "BEM-VINDO", sector: "AGUARDE", room: "" };
@@ -102,18 +181,12 @@ let ultimoChamado = { name: "BEM-VINDO", sector: "AGUARDE", room: "" };
 async function carregarFilaDoBanco() {
     try {
         const filaBanco = await Cliente.find({ status: 'aguardando' }).sort({ dataChegada: 1 });
-        return reordenarPorPrioridade(filaBanco);
-    } catch (error) {
-        console.error("Erro ao carregar fila:", error);
-        return [];
-    }
-}
-
-function reordenarPorPrioridade(lista) {
-    const normais = [];
-    const prioridades = [];
-    lista.forEach(c => c.prioridade ? prioridades.push(c) : normais.push(c));
-    return [...prioridades, ...normais];
+        // Reordena por prioridade
+        const normais = [];
+        const prioridades = [];
+        filaBanco.forEach(c => c.prioridade ? prioridades.push(c) : normais.push(c));
+        return [...prioridades, ...normais];
+    } catch (error) { return []; }
 }
 
 io.on('connection', async (socket) => {
@@ -122,7 +195,10 @@ io.on('connection', async (socket) => {
     socket.emit('update-queue', filaAtual);
     socket.emit('update-history', historicoChamadas);
 
-    socket.on('ping-keep-alive', () => {});
+    socket.on('ping-keep-alive', async () => {
+         // Opcional: Reenviar fila para garantir sincronia
+         // socket.emit('update-queue', await carregarFilaDoBanco());
+    });
 
     socket.on('add-to-queue', async (dados) => {
         if (!dados || !dados.nome) return;
@@ -133,22 +209,21 @@ io.on('connection', async (socket) => {
                 setorNome: dados.setorNome,
                 prioridade: dados.prioridade
             });
-            const filaAtualizada = await carregarFilaDoBanco();
-            io.emit('update-queue', filaAtualizada);
-        } catch (erro) { console.error("Erro ao adicionar:", erro); }
+            io.emit('update-queue', await carregarFilaDoBanco());
+        } catch (erro) { console.error("Erro add:", erro); }
     });
 
     socket.on('remove-from-queue', async (idMongo) => {
         try {
             await Cliente.findByIdAndUpdate(idMongo, { status: 'cancelado' });
-            const filaAtualizada = await carregarFilaDoBanco();
-            io.emit('update-queue', filaAtualizada);
-        } catch (erro) { console.error("Erro ao remover:", erro); }
+            io.emit('update-queue', await carregarFilaDoBanco());
+        } catch (erro) { console.error("Erro remove:", erro); }
     });
 
     socket.on('request-next', async (dadosSala) => {
         try {
             const filaAtual = await carregarFilaDoBanco();
+            // Filtra alguém que seja DESTE setor
             const clienteParaChamar = filaAtual.find(p => p.setorCodigo === dadosSala.setorCodigo);
 
             if (clienteParaChamar) {
@@ -158,6 +233,7 @@ io.on('connection', async (socket) => {
                 await clienteParaChamar.save();
 
                 ultimoChamado = {
+                    id: clienteParaChamar._id, // Envia ID para transferência
                     name: clienteParaChamar.nome,
                     room: dadosSala.room,
                     sector: dadosSala.setorNome,
@@ -168,14 +244,13 @@ io.on('connection', async (socket) => {
                 historicoChamadas.unshift({ ...ultimoChamado });
                 if (historicoChamadas.length > 3) historicoChamadas.pop();
 
-                const novaFila = await carregarFilaDoBanco();
                 io.emit('update-call', ultimoChamado);
                 io.emit('update-history', historicoChamadas);
-                io.emit('update-queue', novaFila);
+                io.emit('update-queue', await carregarFilaDoBanco());
             } else {
                 socket.emit('error-empty', 'Ninguém aguardando para este setor.');
             }
-        } catch (erro) { console.error("Erro ao chamar:", erro); }
+        } catch (erro) { console.error("Erro next:", erro); }
     });
 
     socket.on('repeat-call', () => {
@@ -183,103 +258,52 @@ io.on('connection', async (socket) => {
             io.emit('update-call', { ...ultimoChamado, isRepeat: true });
         }
     });
-});
 
-// --- 6. ROTA DE ESTATÍSTICAS (Por Setor) ---
-app.get('/api/stats', async (req, res) => {
-    try {
-        const totalAtendidos = await Cliente.countDocuments({ status: 'atendido' });
-        const totalFila = await Cliente.countDocuments({ status: 'aguardando' });
-        
-        const hoje = new Date();
-        hoje.setHours(0,0,0,0);
-        
-        const atendidosHoje = await Cliente.find({ 
-            status: 'atendido', 
-            dataAtendimento: { $gte: hoje } 
-        });
-
-        let tempoTotalGeral = 0;
-        const statsPorSetor = {};
-
-        atendidosHoje.forEach(c => {
-            const diff = c.dataAtendimento - c.dataChegada;
-            tempoTotalGeral += diff;
-            const setor = c.setorNome || "Outros";
-
-            if (!statsPorSetor[setor]) {
-                statsPorSetor[setor] = { qtd: 0, tempoTotal: 0 };
-            }
-            statsPorSetor[setor].qtd++;
-            statsPorSetor[setor].tempoTotal += diff;
-        });
-
-        const mediaGeral = atendidosHoje.length > 0 
-            ? Math.floor((tempoTotalGeral / atendidosHoje.length) / 60000) 
-            : 0;
-
-        const porSetor = Object.keys(statsPorSetor).map(nomeSetor => {
-            const dados = statsPorSetor[nomeSetor];
-            return {
-                nome: nomeSetor,
-                qtd: dados.qtd,
-                media: Math.floor((dados.tempoTotal / dados.qtd) / 60000)
-            };
-        });
-
-        res.json({ totalAtendidos, totalFila, mediaMinutos: mediaGeral, atendidosHoje: atendidosHoje.length, porSetor });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// --- 6.1 ROTA DE EXPORTAÇÃO (RELATÓRIO CSV) ---
-app.get('/api/reports/csv', async (req, res) => {
-    try {
-        // Busca apenas quem já foi atendido, do mais recente para o mais antigo
-        const atendidos = await Cliente.find({ status: 'atendido' }).sort({ dataAtendimento: -1 });
-
-        // Cria o cabeçalho do CSV (usando ponto-e-vírgula para o Excel brasileiro entender as colunas)
-        let csv = 'Nome;Setor;Prioridade;Data Chegada;Data Atendimento;Espera (min);Sala\n';
-
-        atendidos.forEach(c => {
-            // Formata as datas para o padrão brasileiro (DD/MM/AAAA HH:mm)
-            const chegada = c.dataChegada ? new Date(c.dataChegada).toLocaleString('pt-BR') : '-';
-            const atendimento = c.dataAtendimento ? new Date(c.dataAtendimento).toLocaleString('pt-BR') : '-';
+    // Transferência de Cliente
+    socket.on('transfer-client', async (dados) => {
+        try {
+            await Cliente.findByIdAndUpdate(dados.id, {
+                status: 'aguardando',
+                setorCodigo: dados.novoSetorCodigo,
+                setorNome: dados.novoSetorNome,
+                salaAtendimento: null,
+                dataAtendimento: null
+            });
             
-            // Calcula o tempo de espera em minutos
-            let espera = 0;
-            if(c.dataChegada && c.dataAtendimento) {
-                espera = Math.floor((new Date(c.dataAtendimento) - new Date(c.dataChegada)) / 60000);
-            }
-
-            // Limpa ponto-e-vírgula dos nomes para não quebrar o arquivo
-            const nome = (c.nome || '').replace(/;/g, ' ');
-            const setor = (c.setorNome || '').replace(/;/g, ' ');
-            const sala = (c.salaAtendimento || '').replace(/;/g, ' ');
-            const prioridade = c.prioridade ? 'SIM' : 'NÃO';
-
-            // Adiciona a linha
-            csv += `${nome};${setor};${prioridade};${chegada};${atendimento};${espera};${sala}\n`;
-        });
-
-        // Configura o navegador para baixar o arquivo
-        res.header('Content-Type', 'text/csv; charset=utf-8');
-        res.header('Content-Disposition', 'attachment; filename="relatorio_atendimentos.csv"');
-        res.send("\uFEFF" + csv); // O \uFEFF força o Excel a abrir com acentos corretos
-
-    } catch (e) {
-        console.error(e);
-        res.status(500).send('Erro ao gerar relatório');
-    }
+            ultimoChamado = { name: "BEM-VINDO", sector: "AGUARDE", room: "" };
+            io.emit('update-queue', await carregarFilaDoBanco());
+            io.emit('update-call', ultimoChamado);
+            
+        } catch (erro) { console.error("Erro transfer:", erro); }
+    });
 });
+
+// --- 6. INICIALIZAÇÃO ---
+
+async function inicializarSetores() {
+    try {
+        const total = await Setor.countDocuments();
+        if (total === 0) {
+            console.log("⚙️ Criando setores padrão...");
+            await Setor.create([
+                { codigo: 'estagio', nome: 'SETOR DE ESTÁGIO', sala: 'RECEPÇÃO' },
+                { codigo: 'diretoria', nome: 'DIRETORIA DO DGRH', sala: 'SALA A2' },
+                { codigo: 'terceirizados', nome: 'TERCEIRIZADOS', sala: 'SALA A1' },
+                { codigo: 'frequencia', nome: 'FREQUÊNCIA', sala: 'SALA A3' },
+                { codigo: 'lotacao', nome: 'LOTAÇÃO', sala: 'SALA A4' },
+                { codigo: 'ferias', nome: 'FÉRIAS E LICENÇAS', sala: 'SALA A5' }
+            ]);
+        }
+    } catch (e) { console.error("Erro init setores:", e); }
+}
 
 const PORT = process.env.PORT || 3000;
 
-// --- 7. INICIALIZAÇÃO (Conecta Banco -> Inicia Servidor) ---
 console.log("⏳ Tentando conectar ao MongoDB...");
-
 mongoose.connect(mongoURI)
     .then(() => {
         console.log('✅ Conectado ao MongoDB com sucesso!');
+        inicializarSetores(); // Garante que existem setores no banco
         server.listen(PORT, () => {
             console.log(`🚀 Servidor rodando na porta ${PORT}`);
         });
