@@ -12,6 +12,74 @@
     📥 Baixar Relatório Completo (Excel)
     </button>
 
+    <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 30px; border-left: 5px solid #8e44ad; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+    <h2 style="margin-top:0; color: #8e44ad;">⚙️ Gerenciar Salas e Setores</h2>
+    
+    <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+        <input type="text" id="novoCodigo" placeholder="Cód (ex: rh)" style="padding: 10px; border: 1px solid #ccc; width: 100px; border-radius: 5px;">
+        <input type="text" id="novoNome" placeholder="Nome do Setor (ex: Recursos Humanos)" style="padding: 10px; border: 1px solid #ccc; flex: 1; border-radius: 5px;">
+        <input type="text" id="novaSala" placeholder="Sala (ex: Sala B2)" style="padding: 10px; border: 1px solid #ccc; width: 150px; border-radius: 5px;">
+        <button onclick="adicionarSetor()" style="padding: 10px 20px; background: #8e44ad; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">+ ADICIONAR</button>
+    </div>
+
+    <ul id="listaSetores" style="list-style: none; padding: 0; margin: 0;">
+        <li style="padding: 10px; color: #7f8c8d;">Carregando setores...</li>
+    </ul>
+</div>
+
+<script>
+    async function carregarSetoresAdmin() {
+        try {
+            const res = await fetch('/api/config/setores');
+            const setores = await res.json();
+            const lista = document.getElementById('listaSetores');
+            lista.innerHTML = '';
+
+            setores.forEach(s => {
+                const li = document.createElement('li');
+                li.style = "background: #f8f9fa; padding: 10px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; border-radius: 5px;";
+                li.innerHTML = `
+                    <span><b style="color:#2c3e50;">${s.sala}</b> - ${s.nome} <small style="color:#7f8c8d;">(${s.codigo})</small></span>
+                    <button onclick="removerSetor('${s._id}')" style="color: #c0392b; background: none; border: 1px solid #c0392b; padding: 5px 10px; border-radius: 3px; cursor: pointer;">🗑️ Excluir</button>
+                `;
+                lista.appendChild(li);
+            });
+        } catch (e) {
+            console.error("Erro ao carregar setores:", e);
+        }
+    }
+
+    async function adicionarSetor() {
+        const codigo = document.getElementById('novoCodigo').value.trim().toLowerCase();
+        const nome = document.getElementById('novoNome').value.trim().toUpperCase();
+        const sala = document.getElementById('novaSala').value.trim().toUpperCase();
+
+        if(!codigo || !nome || !sala) return alert("Preencha todos os campos!");
+
+        await fetch('/api/config/setores', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ codigo, nome, sala })
+        });
+        
+        document.getElementById('novoCodigo').value = "";
+        document.getElementById('novoNome').value = "";
+        document.getElementById('novaSala').value = "";
+        carregarSetoresAdmin();
+        alert("Setor adicionado! Atualize as telas de recepção e salas para ver a mudança.");
+    }
+
+    async function removerSetor(id) {
+        if(confirm("Tem certeza que deseja excluir este setor?")) {
+            await fetch(`/api/config/setores/${id}`, { method: 'DELETE' });
+            carregarSetoresAdmin();
+        }
+    }
+
+    // Inicia a busca ao abrir a página
+    carregarSetoresAdmin();
+</script>
+
 <div class="dashboard">
     
     <div class="dashboard">
